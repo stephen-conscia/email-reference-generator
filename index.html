@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>DTMF Form Demo</title>
+  <script type="module" src="./src/dtmf-input.ts"></script>
+</head>
+
+<body>
+  <dtmf-input darkmode="true"></dtmf-input>
+
+
+  <script>
+    const dtmfInput = document.querySelector("dtmf-input");
+    setTimeout(function () {
+      dtmfInput.setAttribute('darkmode', 'false'); // Disable dark
+    }, 6000);
+
+  </script>
+</body>
+
+</html>

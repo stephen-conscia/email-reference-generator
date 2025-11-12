@@ -1,0 +1,42 @@
+# Node dependencies
+node_modules/
+
+logs/
+
+# TypeScript cache and output
+*.tsbuildinfo
+*.log
+*.d.ts
+tsconfig.tsbuildinfo
+
+# Editor and OS files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/
+*.code-workspace
+
+# Environment and local config
+.env
+.env.*
+!.env.example
+
+# Temporary files
+temp/
+tmp/
+*.tmp
+
+# Coverage / test output
+coverage/
+.nyc_output/
+
+# Lock files (optional – if you prefer npm or pnpm over yarn)
+# Uncomment one if needed:
+# package-lock.json
+# pnpm-lock.yaml
+# yarn.lock
+
+# Vite cache
+.vite/
