@@ -8,8 +8,8 @@ export default defineConfig({
     emptyOutDir: true,
     sourcemap: true,
     lib: {
-      entry: resolve(__dirname, 'src/dtmf-input.ts'),
-      name: 'DtmfInput',
+      entry: resolve(__dirname, 'src/email-ref-generator.ts'),
+      name: 'email_ref_generator',
       fileName: () => 'app.js',
       formats: ['iife']
     },

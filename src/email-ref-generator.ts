@@ -6,9 +6,10 @@ const logger = Desktop.logger.createLogger('email-reference-generator');
 
 export class DtmfInput extends HTMLElement {
   private container!: HTMLDivElement;
-  private button!: HTMLButtonElement;
+  private copyButton!: HTMLButtonElement;
+  private regenerateButton!: HTMLButtonElement;
+  private outputSpan!: HTMLSpanElement;
   private emailTransactionIds = new Set();
-  private _active = false;
 
   static get observedAttributes() {
     return ['darkmode'];
@@ -20,40 +21,56 @@ export class DtmfInput extends HTMLElement {
     shadow.innerHTML = `
       <style>
         :host {
-          --button-bg: #3b82f6;
-          --button-fg: white;
-          --button-hover: #2563eb;
-
-          --icon-border: #b0b2b6;   /* was #a8aaad */
-          --icon-bg: #ECF3FE;
-          --icon-hover-bg: #d4e0f8;  /* slightly darker than #ECF3FE */
-          --icon-fg: #6b7280;
-
-          --button-success-bg: #22c55e;
-          --button-success-text: #FFFFFF;
-          --button-success-hover: #16a34a;
+          --text-color: oklch(20.8% 0.042 265.755);
+          --shadow: oklch(70.4% 0.04 256.788);
+          --border: oklch(20.8% 0.042 265.755);
+            
+          --success-bg: oklch(72.3% 0.219 149.579);
+          --success-text: oklch(96.2% 0.044 156.743);
         }
 
         /* Dark mode - activated via .dark class */
         :host(.dark) {
-          /* Slightly muted button colors for dark mode */
-          --button-bg: #2563eb;          /* was #3b82f6, a bit darker */
-          --button-fg: #f1f5f9;          /* lighter text for contrast */
-          --button-hover: #1d4ed8;       /* slightly darker on hover */
+          --text-color: oklch(92.9% 0.013 255.508);
 
-          --icon-bg: transparent;
-          --icon-fg: #94a3b8;
-          --icon-border: #64748b;
-          /* icon hover a bit lighter/darker for subtle effect */
-          --icon-hover-bg: #2c374e;      /* was #334155, slightly softer */
-
-          /* Success button colors tuned for dark mode */
-          --button-success-bg: #22c55e;  /* slightly darker green */
-          --button-success-hover: #16a34a;
+          --shadow: oklch(86.9% 0.022 252.894);
+          --border: oklch(70.4% 0.04 256.788);
         }
 
         .container {
           height: 38px;
+          border-radius: 4px;
+          border-color: var(--text-color);
+          border: 1px solid var(--border);
+          display: inline-flex;
+          flex-warp: no-wrap;
+          align-items: center;
+          justify-content:center;
+          gap: 0.2em;
+          padding: 0 0.4em;
+          transition: background-color 0.4s ease, color 0.4s ease, opacity 0.3s ease, transform 0.3s ease;
+          opacity: 0;
+          pointer-events: none;
+          transform: translateY(-10px);
+          color: var(--text-color);
+        }
+
+        .container.active {
+          opacity: 1;
+          transform: translateY(0);
+          pointer-events: auto;
+        }
+
+
+        .container--success {
+          background: var(--success-bg);
+          color: var(--success-text);
+        }
+
+        span {
+          color: inherit;
+          user-select: text;
+          cursor: text;
         }
 
         .button {
@@ -61,41 +78,19 @@ export class DtmfInput extends HTMLElement {
           align-items: center;
           justify-content: center;
           gap: 0.2em;
-          padding: 0.4em 0.75em;
-          border: none;
-          border-radius: 0.4em;
+          padding: 0.1em;
           font-size: 1rem;
           cursor: pointer;
           transition: all 0.2s ease;
-          background: var(--button-bg);
-          color: var(--button-fg);
-          font-weight: 500;
+          background: transparent;
+          color: inherit;
+          border: none;
+          border-radius: 4px;
         }
 
-        .button:hover {
-          background: var(--button-hover);
-        }
-
-        .button--success {
-          background: var(--button-success-bg);
-          color: var(--button-success-text);
-        }
-
-        .button--success:hover {
-          background: var(--button-success-hover);
-        }
-
-        .button:not(:disabled):active {
-           transform: translateY(1px);
-         }
-
-        .button:disabled {
-          cursor: not-allowed;
-          pointer-events: none;
-        }
-
-        .button:active {
-          transform: translateY(1px);
+        .button:is(:hover, :focus) {
+           box-shadow: 0 0 2px 2px var(--shadow);
+           outline: transparent;
         }
 
         .button__icon {
@@ -111,36 +106,72 @@ export class DtmfInput extends HTMLElement {
       </style>
 
       <div class="container">
-        <button type="submit" class="button" title="Create Email Reference" aria-label="Create Email Reference">Create Email Reference</button>
+        <button id="regenerate-btn" class="button" title="Regenerate Reference" aria-label="Regenerate Reference">
+          <svg class="button__icon" xmlns="http://www.w3.org/2000/svg" height="16px" viewBox="0 -960 960 960" width="24px">
+            <path
+              d="M204-318q-22-38-33-78t-11-82q0-134 93-228t227-94h7l-64-64 56-56 160 160-160 160-56-56 64-64h-7q-100 0-170 70.5T240-478q0 26 6 51t18 49l-60 60ZM481-40 321-200l160-160 56 56-64 64h7q100 0 170-70.5T720-482q0-26-6-51t-18-49l60-60q22 38 33 78t11 82q0 134-93 228t-227 94h-7l64 64-56 56Z" />
+          </svg>
+        </button>
+        <span class="text-output"></span>
+        <button id="copy-btn" class="button" title="Create Email Reference" aria-label="Create Email Reference">
+          <svg class="button__icon" xmlns="http://www.w3.org/2000/svg" height="16px" viewBox="0 -960 960 960" width="24px">
+            <path
+              d="M360-240q-33 0-56.5-23.5T280-320v-480q0-33 23.5-56.5T360-880h360q33 0 56.5 23.5T800-800v480q0 33-23.5 56.5T720-240H360Zm0-80h360v-480H360v480ZM200-80q-33 0-56.5-23.5T120-160v-560h80v560h440v80H200Zm160-240v-480 480Z" />
+          </svg>
+        </button>
       </div>
     `;
   }
 
   connectedCallback() {
     Desktop.config.init({ widgetName: "email-reference-generator", widgetProvider: "Conscia" });
-    this.button = this.shadowRoot!.querySelector('button')!;
+    this.container = this.shadowRoot!.querySelector('.container')!;
+    this.copyButton = this.shadowRoot!.querySelector('#copy-btn')!;
+    this.regenerateButton = this.shadowRoot!.querySelector('#regenerate-btn')!;
+    this.outputSpan = this.shadowRoot!.querySelector('span')!;
+
+    this.outputSpan.textContent = generateEmailId();
+
+    this.outputSpan.addEventListener("click", () => {
+      const range = document.createRange();
+      range.selectNodeContents(this.outputSpan);
+      const sel = window.getSelection();
+      sel?.removeAllRanges();
+      sel?.addRange(range)
+    });
+
+    this.regenerateButton.addEventListener("click", () => {
+      console.log("regen button clicked");
+      this.outputSpan.textContent = generateEmailId();
+    });
+
+    this.copyButton.addEventListener("click", () => {
+      const textToCopy = this.outputSpan.textContent;
+      navigator.clipboard.writeText(textToCopy).then(() => {
+        this.container.classList.add('container--success');
+        setTimeout(() => {
+          this.container.classList.remove('container--success');
+        }, 5000);
+      }).catch(() => alert("Unable to write to clipboard. Please ensure permissions have been enabled."));
+    });
 
     this.webexEventListeners();
-  }
-
-  public get active() {
-    return this._active;
   }
 
   render() {
     if (this.emailTransactionIds.size) {
       logger.info("Render: showing the widget");
-      this._active = true;
+      this.outputSpan.textContent = generateEmailId();
       this.container.classList.add('active');
     } else {
-      this._active = false;
+      logger.info("Render: hiding the widget");
       this.container.classList.remove('active');
     }
   }
 
   webexEventListeners() {
     Desktop.agentContact.addEventListener("eAgentContactAssigned", (message) => {
-      //logger.info('eAgentContactAssigned', JSON.stringify(message));
+      logger.info('eAgentContactAssigned', JSON.stringify(message));
       logger.info("media type is:", message.data.interaction.mediaType);
       logger.info("interactionId", message.data.interaction.interactionId);
       if (message.data.interaction.mediaType === "email") {
@@ -150,7 +181,7 @@ export class DtmfInput extends HTMLElement {
     });
 
     Desktop.agentContact.addEventListener("eAgentContactEnded", (message) => {
-      //logger.info('eAgentContactEnded', JSON.stringify(message));
+      logger.info('eAgentContactEnded', JSON.stringify(message));
       logger.info("media type is:", message.data.interaction.mediaType);
       logger.info("interactionId", message.data.interaction.interactionId);
       if (this.emailTransactionIds.has(message.data.interactionId)) {
@@ -161,7 +192,6 @@ export class DtmfInput extends HTMLElement {
     });
   }
 
-  // Handle darkmode="true" | "false"
   attributeChangedCallback(name: string, _: string, newValue: string) {
     if (name === 'darkmode') {
       const isDark = newValue === 'true';
