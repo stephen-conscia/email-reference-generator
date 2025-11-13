@@ -1,11 +1,13 @@
 import { Desktop } from "@wxcc-desktop/sdk"
+import generateEmailId from "./generate-reference-id"
 
 //Creating a custom logger
-const logger = Desktop.logger.createLogger('dtmf-input-logger');
+const logger = Desktop.logger.createLogger('email-reference-generator');
 
 export class DtmfInput extends HTMLElement {
+  private container!: HTMLDivElement;
   private button!: HTMLButtonElement;
-  private emailIdList: string[] = [];
+  private emailTransactionIds = new Set();
   private _active = false;
 
   static get observedAttributes() {
@@ -50,6 +52,10 @@ export class DtmfInput extends HTMLElement {
           --button-success-hover: #16a34a;
         }
 
+        .container {
+          height: 38px;
+        }
+
         .button {
           display: inline-flex;
           align-items: center;
@@ -61,7 +67,6 @@ export class DtmfInput extends HTMLElement {
           font-size: 1rem;
           cursor: pointer;
           transition: all 0.2s ease;
-          height: 38px;
           background: var(--button-bg);
           color: var(--button-fg);
           font-weight: 500;
@@ -105,65 +110,15 @@ export class DtmfInput extends HTMLElement {
         }
       </style>
 
-      <button type="submit" class="button" title="Create Email Reference" aria-label="Create Email Reference">Create Email Reference</button>
+      <div class="container">
+        <button type="submit" class="button" title="Create Email Reference" aria-label="Create Email Reference">Create Email Reference</button>
+      </div>
     `;
   }
 
   connectedCallback() {
     Desktop.config.init({ widgetName: "email-reference-generator", widgetProvider: "Conscia" });
     this.button = this.shadowRoot!.querySelector('button')!;
-
-    // Paste from clipboard
-    this.pasteButton.addEventListener("click", async () => {
-      if (!navigator.clipboard?.readText) {
-        alert("Clipboard access not supported. Please paste manually.");
-        return;
-      }
-
-      try {
-        const text = await navigator.clipboard.readText();
-        const filtered = text.replace(/[^0-9*#]/g, '');
-        this.input.value = filtered;
-        this.input.dispatchEvent(new Event('input'));
-        this.input.focus();
-      } catch (err) {
-        logger.warn("Clipboard error:", err);
-        alert("Failed to paste. Try Ctrl+V.");
-      }
-    });
-
-    // Filter input in real-time
-    this.input.addEventListener("input", () => {
-      const filtered = this.input.value.replace(/[^0-9*#]/g, '');
-      if (this.input.value !== filtered) {
-        this.input.value = filtered;
-      }
-    });
-
-    // Handle form submit
-    this.form.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const value = this.input.value.trim();
-      if (value) {
-        this.submitButton.disabled = true;
-        this.submitButton.classList.add("button--success");
-        this.submitButton.innerHTML = `
-          <span>Sent</span>
-          <svg xmlns="http://www.w3.org/2000/svg" height="20px" viewBox="0 -960 960 960" width="20px" class=
-"button__icon">
-            <path d="M382-240 154-468l57-57 171 171 367-367 57 57-424 424Z" fill="currentColor" />
-          </svg>
-          `;
-        setTimeout(() => {
-          this.submitButton.disabled = false;
-          this.submitButton.classList.remove("button--success");
-          this.submitButton.textContent = "Submit";
-        }, 2000);
-        logger.info("sending DTMF values", value);
-        Desktop.agentContact.sendDtmf(value);
-      }
-      this.input.value = '';
-    });
 
     this.webexEventListeners();
   }
@@ -172,27 +127,25 @@ export class DtmfInput extends HTMLElement {
     return this._active;
   }
 
-  show() {
-    this._active = true;
-    this.form.classList.add('active');
-    this.input.focus();
+  render() {
+    if (this.emailTransactionIds.size) {
+      logger.info("Render: showing the widget");
+      this._active = true;
+      this.container.classList.add('active');
+    } else {
+      this._active = false;
+      this.container.classList.remove('active');
+    }
   }
-
-  hide() {
-    this._active = false;
-    this.form.classList.remove('active');
-  }
-
 
   webexEventListeners() {
     Desktop.agentContact.addEventListener("eAgentContactAssigned", (message) => {
       //logger.info('eAgentContactAssigned', JSON.stringify(message));
       logger.info("media type is:", message.data.interaction.mediaType);
       logger.info("interactionId", message.data.interaction.interactionId);
-      if (message.data.interaction.mediaType === "telephony" && !this._interactionId) {
-        this._interactionId = message.data.interactionId;
-        this.show();
-        logger.info("New voice interaction. Showing the widget");
+      if (message.data.interaction.mediaType === "email") {
+        this.emailTransactionIds.add(message.data.interactionId);
+        this.render();
       }
     });
 
@@ -200,10 +153,10 @@ export class DtmfInput extends HTMLElement {
       //logger.info('eAgentContactEnded', JSON.stringify(message));
       logger.info("media type is:", message.data.interaction.mediaType);
       logger.info("interactionId", message.data.interaction.interactionId);
-      if (message.data.interactionId === this._interactionId) {
-        this._interactionId = null;
-        this.hide();
-        logger.info("Tracked interaction closed. Hiding the widget");
+      if (this.emailTransactionIds.has(message.data.interactionId)) {
+        this.emailTransactionIds.delete(message.data.interactionId);
+        this.render();
+        logger.info("Tracked interaction closed.");
       }
     });
   }
@@ -221,4 +174,4 @@ export class DtmfInput extends HTMLElement {
   }
 }
 
-customElements.define('dtmf-input', DtmfInput);
+customElements.define('email-reference-generator', DtmfInput);

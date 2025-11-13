@@ -3,18 +3,17 @@
 
 <head>
   <meta charset="UTF-8" />
-  <title>DTMF Form Demo</title>
-  <script type="module" src="./src/dtmf-input.ts"></script>
+  <title>Email Reference Generator Demo</title>
+  <script type="module" src="./src/email-ref-generator.ts"></script>
 </head>
 
 <body>
-  <dtmf-input darkmode="true"></dtmf-input>
-
+  <email-reference-generator darkmode="true"></<body></email-reference-generator>
 
   <script>
-    const dtmfInput = document.querySelector("dtmf-input");
+    const emailGenerator = document.querySelector("email-reference-generator");
     setTimeout(function () {
-      dtmfInput.setAttribute('darkmode', 'false'); // Disable dark
+      emailGenerator.setAttribute('darkmode', 'false'); // Disable dark
     }, 6000);
 
   </script>
