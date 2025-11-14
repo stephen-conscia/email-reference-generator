@@ -5,10 +5,7 @@ import generateEmailId from "./generate-reference-id"
 const logger = Desktop.logger.createLogger('email-reference-generator');
 
 export class EmailRefGenerator extends HTMLElement {
-  private container!: HTMLDivElement;
   private copyButton!: HTMLButtonElement;
-  private regenerateButton!: HTMLButtonElement;
-  private outputSpan!: HTMLSpanElement;
   private emailTransactionIds = new Set();
 
   static get observedAttributes() {
@@ -24,9 +21,10 @@ export class EmailRefGenerator extends HTMLElement {
           --text-color: oklch(20.8% 0.042 265.755);
           --shadow: oklch(70.4% 0.04 256.788);
           --border: oklch(55.4% 0.046 257.417);
+          --button-outline: #65B4FA;
             
           --success-bg: oklch(72.3% 0.219 149.579);
-          --success-text: oklch(96.2% 0.044 156.743);
+          --success-text: oklch(62.7% 0.194 149.214);
         }
 
         /* Dark mode - activated via .dark class */
@@ -38,7 +36,6 @@ export class EmailRefGenerator extends HTMLElement {
         }
 
         .container {
-          height: 34px;
           box-sizing: border-box;
           border-radius: 8px;
           border-color: var(--text-color);
@@ -59,47 +56,39 @@ export class EmailRefGenerator extends HTMLElement {
         transform: translateY(-10px);
         }
 
-        .container.active {
+        .button {
+          width: 32px;
+          height: 32px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0.2em;
+          padding: 0.4em;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          background: transparent;
+          color: var(--text-color);
+          border: none;
+          border-radius: 50%;
+        }
+
+        .button:is(:hover, :focus) {
+           box-shadow: 0 0 2px 2px var(--button-outline);
+           outline: transparent;
+        }
+
+        .button.active {
           opacity: 1;
           transform: translateY(0);
           pointer-events: auto;
         }
 
-
-        .container--success {
-          background: var(--success-bg);
+        .button.success {
           color: var(--success-text);
         }
 
-        span {
-          color: inherit;
-          user-select: text;
-          cursor: text;
-        }
-
-        .button {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          gap: 0.2em;
-          padding: 0.1em;
-          cursor: pointer;
-          transition: all 0.2s ease;
-          background: transparent;
-          color: inherit;
-          border: none;
-          border-radius: 4px;
-        }
-
-        .button:is(:hover, :focus) {
-           box-shadow: 0 0 2px 2px var(--shadow);
-           outline: transparent;
-        }
-
         .button__icon {
-          width: 1.25em;
-          height: 1.25em;
-          fill: currentColor;
+          width: auto;
         }
 
         /* Dark mode input focus glow */
@@ -108,56 +97,29 @@ export class EmailRefGenerator extends HTMLElement {
         }
       </style>
 
-      <div class="container">
-        <button id="regenerate-btn" class="button" title="Regenerate Reference" aria-label="Regenerate Reference">
-          <svg class="button__icon" xmlns="http://www.w3.org/2000/svg" height="16px" viewBox="0 -960 960 960" width="24px">
-            <path
-              d="M204-318q-22-38-33-78t-11-82q0-134 93-228t227-94h7l-64-64 56-56 160 160-160 160-56-56 64-64h-7q-100 0-170 70.5T240-478q0 26 6 51t18 49l-60 60ZM481-40 321-200l160-160 56 56-64 64h7q100 0 170-70.5T720-482q0-26-6-51t-18-49l60-60q22 38 33 78t11 82q0 134-93 228t-227 94h-7l64 64-56 56Z" />
-          </svg>
-        </button>
-        <span class="text-output"></span>
-        <button id="copy-btn" class="button" title="Create Email Reference" aria-label="Create Email Reference">
-          <svg class="button__icon" xmlns="http://www.w3.org/2000/svg" height="16px" viewBox="0 -960 960 960" width="24px">
-            <path
-              d="M360-240q-33 0-56.5-23.5T280-320v-480q0-33 23.5-56.5T360-880h360q33 0 56.5 23.5T800-800v480q0 33-23.5 56.5T720-240H360Zm0-80h360v-480H360v480ZM200-80q-33 0-56.5-23.5T120-160v-560h80v560h440v80H200Zm160-240v-480 480Z" />
-          </svg>
-        </button>
-      </div>
+      <button id="copy-btn" class="button" title="Generate Email Title" aria-label="Generate Email Title">
+        <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor">
+          <path
+            d="M480-480Zm0-40 320-200H160l320 200ZM160-160q-33 0-56.5-23.5T80-240v-480q0-33 23.5-56.5T160-800h640q33 0 56.5 23.5T880-720v280h-80v-200L480-440 160-640v400h360v80H160ZM715-42l-70-40 46-78h-91v-80h91l-46-78 70-40 45 78 45-78 70 40-46 78h91v80h-91l46 78-70 40-45-78-45 78Z" />
+        </svg>
+      </button>
     `;
   }
 
   connectedCallback() {
     Desktop.config.init({ widgetName: "email-reference-generator", widgetProvider: "Conscia" });
-    this.container = this.shadowRoot!.querySelector('.container')!;
     this.copyButton = this.shadowRoot!.querySelector('#copy-btn')!;
-    this.regenerateButton = this.shadowRoot!.querySelector('#regenerate-btn')!;
-    this.outputSpan = this.shadowRoot!.querySelector('span')!;
-    let timerId: number | null;
-
-    this.outputSpan.textContent = generateEmailId();
-
-    this.outputSpan.addEventListener("click", () => {
-      const range = document.createRange();
-      range.selectNodeContents(this.outputSpan);
-      const sel = window.getSelection();
-      sel?.removeAllRanges();
-      sel?.addRange(range)
-    });
-
-    this.regenerateButton.addEventListener("click", () => {
-      console.log("regen button clicked");
-      this.outputSpan.textContent = generateEmailId();
-    });
+    let timerId: number | undefined;
 
     this.copyButton.addEventListener("click", () => {
-      if (timerId) clearTimeout(timerId);
-      const textToCopy = this.outputSpan.textContent;
+      const textToCopy = generateEmailId();
       navigator.clipboard.writeText(textToCopy).then(() => {
-        this.container.classList.add('container--success');
+        if (timerId) clearTimeout(timerId);
+        this.copyButton.classList.add("success");
         timerId = setTimeout(() => {
-          this.container.classList.remove('container--success');
-          timerId = null;
+          this.copyButton.classList.remove("success");
         }, 3000);
+
       }).catch(() => alert("Unable to write to clipboard. Please ensure permissions have been enabled."));
     });
 
@@ -167,11 +129,10 @@ export class EmailRefGenerator extends HTMLElement {
   render() {
     if (this.emailTransactionIds.size) {
       logger.info("Render: showing the widget");
-      this.outputSpan.textContent = generateEmailId();
-      this.container.classList.add('active');
+      this.copyButton.classList.add('active');
     } else {
       logger.info("Render: hiding the widget");
-      this.container.classList.remove('active');
+      this.copyButton.classList.remove('active');
     }
   }
 
