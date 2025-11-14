@@ -18,6 +18,10 @@ export class EmailRefGenerator extends HTMLElement {
     shadow.innerHTML = `
       <style>
         :host {
+          --scale: 0;
+          --tooltip-color: black;
+          --arrow-size: 10px;
+
           --text-color: oklch(20.8% 0.042 265.755);
           --shadow: oklch(70.4% 0.04 256.788);
           --border: oklch(55.4% 0.046 257.417);
@@ -70,11 +74,48 @@ export class EmailRefGenerator extends HTMLElement {
           color: var(--text-color);
           border: none;
           border-radius: 50%;
+          position: relative;
         }
 
-        .button:is(:hover, :focus) {
+        .button::before,
+        .button::after {
+          position: absolute;
+          left: 50%;
+          bottom: -20px;
+          transform: translateX(-50%) translateY(var(--translate-y, 0)) scale(var(--scale));
+          transition: 50ms transform;
+          transform-origin: bottom center;
+        }
+
+        .button::before {
+          --translate-y: calc(100% - var(--arrow-size));
+
+          content: attr(data-tooltip);
+          background: var(--tooltip-color);
+          border-radius: 4px;
+          text-align: center;
+          color: white;
+          width: max-content;
+          padding: 0.4rem;
+        }
+        
+        .button::after {
+          --translate-y: calc(-1 * var(--arrow-size));
+
+          content: '';
+          border: var(--arrow-size) solid transparent;
+          border-bottom-color: var(--tooltip-color);
+          transform-origin: bottom center;
+        }
+
+        .button:is(:focus) {
            box-shadow: 0 0 2px 2px var(--button-outline);
            outline: transparent;
+        }
+
+        .button:hover::before,
+        .button:hover::after {
+          --scale: 1;
         }
 
         .button.active {
@@ -97,7 +138,7 @@ export class EmailRefGenerator extends HTMLElement {
         }
       </style>
 
-      <button id="copy-btn" class="button" title="Generate Email Title" aria-label="Generate Email Title">
+      <button id="copy-btn" class="button" data-tooltip="Generate Email Title" title="Generate Email Title" aria-label="Generate Email Title">
         <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor">
           <path
             d="M480-480Zm0-40 320-200H160l320 200ZM160-160q-33 0-56.5-23.5T80-240v-480q0-33 23.5-56.5T160-800h640q33 0 56.5 23.5T880-720v280h-80v-200L480-440 160-640v400h360v80H160ZM715-42l-70-40 46-78h-91v-80h91l-46-78 70-40 45 78 45-78 70 40-46 78h91v80h-91l46 78-70 40-45-78-45 78Z" />
