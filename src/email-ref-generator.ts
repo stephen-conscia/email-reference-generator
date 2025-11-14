@@ -18,7 +18,6 @@ export class EmailRefGenerator extends HTMLElement {
     shadow.innerHTML = `
       <style>
         :host {
-          --scale: 0;
           --tooltip-color: black;
           --arrow-size: 10px;
 
@@ -66,56 +65,65 @@ export class EmailRefGenerator extends HTMLElement {
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          gap: 0.2em;
           padding: 0.4em;
           cursor: pointer;
-          transition: all 0.2s ease;
           background: transparent;
           color: var(--text-color);
           border: none;
           border-radius: 50%;
           position: relative;
+
+          --scale: 0;       /* tooltip hidden initially */
+          --arrow-size: 16px; /* bigger arrow */
+          --tooltip-border: #767676;
         }
 
+        /* Shared base styles for tooltip and arrow */
         .button::before,
         .button::after {
           position: absolute;
           left: 50%;
-          bottom: -20px;
-          transform: translateX(-50%) translateY(var(--translate-y, 0)) scale(var(--scale));
-          transition: 50ms transform;
-          transform-origin: bottom center;
+          top: calc(100% + 6px);   /* BELOW the button */
+          transform: translateX(-50%) scale(var(--scale));
+          transform-origin: top center;
+          transition: transform 120ms ease;
         }
 
+        /* Tooltip bubble */
         .button::before {
-          --translate-y: calc(100% - var(--arrow-size));
-
           content: attr(data-tooltip);
           background: var(--tooltip-color);
-          border-radius: 4px;
-          text-align: center;
           color: white;
-          width: max-content;
-          padding: 0.4rem;
+          padding: 0.5rem 0.6rem;
+          border-radius: 4px;
+          font-size: 13px;
+          white-space: nowrap;
+          z-index: 10;
+          filter: drop-shadow(0 0 0.5px var(--tooltip-border));
         }
-        
-        .button::after {
-          --translate-y: calc(-1 * var(--arrow-size));
 
-          content: '';
-          border: var(--arrow-size) solid transparent;
-          border-bottom-color: var(--tooltip-color);
-          transform-origin: bottom center;
+        /* Arrow pointing UP toward the button */
+        .button::after {
+          content: "";
+          top: calc(100%); /* arrow sits below tooltip */
+          transform: translateX(-50%) scale(var(--scale));
+          border-left: var(--arrow-size) solid transparent;
+          border-right: var(--arrow-size) solid transparent;
+          border-bottom: var(--arrow-size) solid var(--tooltip-color); /* ▲ arrow pointing up */
+          /* optional border for arrow edges */
+          filter: drop-shadow(0 0 0.5px var(--tooltip-border));
+          z-index: 9;
+        }
+
+        /* Show tooltip when hovering */
+        .button:hover::before,
+        .button:hover::after {
+          --scale: 1;
         }
 
         .button:is(:focus) {
            box-shadow: 0 0 2px 2px var(--button-outline);
            outline: transparent;
-        }
-
-        .button:hover::before,
-        .button:hover::after {
-          --scale: 1;
         }
 
         .button.active {
