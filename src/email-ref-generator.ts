@@ -4,7 +4,7 @@ import generateEmailId from "./generate-reference-id"
 //Creating a custom logger
 const logger = Desktop.logger.createLogger('email-reference-generator');
 
-export class DtmfInput extends HTMLElement {
+export class EmailRefGenerator extends HTMLElement {
   private container!: HTMLDivElement;
   private copyButton!: HTMLButtonElement;
   private regenerateButton!: HTMLButtonElement;
@@ -23,7 +23,7 @@ export class DtmfInput extends HTMLElement {
         :host {
           --text-color: oklch(20.8% 0.042 265.755);
           --shadow: oklch(70.4% 0.04 256.788);
-          --border: oklch(20.8% 0.042 265.755);
+          --border: oklch(55.4% 0.046 257.417);
             
           --success-bg: oklch(72.3% 0.219 149.579);
           --success-text: oklch(96.2% 0.044 156.743);
@@ -34,12 +34,13 @@ export class DtmfInput extends HTMLElement {
           --text-color: oklch(92.9% 0.013 255.508);
 
           --shadow: oklch(86.9% 0.022 252.894);
-          --border: oklch(70.4% 0.04 256.788);
+          --border: oklch(37.2% 0.044 257.287);
         }
 
         .container {
-          height: 38px;
-          border-radius: 4px;
+          height: 34px;
+          box-sizing: border-box;
+          border-radius: 8px;
           border-color: var(--text-color);
           border: 1px solid var(--border);
           display: inline-flex;
@@ -49,10 +50,13 @@ export class DtmfInput extends HTMLElement {
           gap: 0.2em;
           padding: 0 0.4em;
           transition: background-color 0.4s ease, color 0.4s ease, opacity 0.3s ease, transform 0.3s ease;
-          opacity: 0;
-          pointer-events: none;
-          transform: translateY(-10px);
           color: var(--text-color);
+          font-size: 0.9rem;
+        }
+        .test {
+        opacity: 0;
+        pointer-events: none;
+        transform: translateY(-10px);
         }
 
         .container.active {
@@ -79,7 +83,6 @@ export class DtmfInput extends HTMLElement {
           justify-content: center;
           gap: 0.2em;
           padding: 0.1em;
-          font-size: 1rem;
           cursor: pointer;
           transition: all 0.2s ease;
           background: transparent;
@@ -129,6 +132,7 @@ export class DtmfInput extends HTMLElement {
     this.copyButton = this.shadowRoot!.querySelector('#copy-btn')!;
     this.regenerateButton = this.shadowRoot!.querySelector('#regenerate-btn')!;
     this.outputSpan = this.shadowRoot!.querySelector('span')!;
+    let timerId: number | null;
 
     this.outputSpan.textContent = generateEmailId();
 
@@ -146,12 +150,14 @@ export class DtmfInput extends HTMLElement {
     });
 
     this.copyButton.addEventListener("click", () => {
+      if (timerId) clearTimeout(timerId);
       const textToCopy = this.outputSpan.textContent;
       navigator.clipboard.writeText(textToCopy).then(() => {
         this.container.classList.add('container--success');
-        setTimeout(() => {
+        timerId = setTimeout(() => {
           this.container.classList.remove('container--success');
-        }, 5000);
+          timerId = null;
+        }, 3000);
       }).catch(() => alert("Unable to write to clipboard. Please ensure permissions have been enabled."));
     });
 
@@ -204,4 +210,4 @@ export class DtmfInput extends HTMLElement {
   }
 }
 
-customElements.define('email-reference-generator', DtmfInput);
+customElements.define('email-reference-generator', EmailRefGenerator);
