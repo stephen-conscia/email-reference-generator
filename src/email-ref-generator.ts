@@ -1,223 +1,109 @@
-import { Desktop } from "@wxcc-desktop/sdk"
-import generateEmailId from "./generate-reference-id"
+function generateId(): string {
+  // Reference ID example [J4L5/250917/101545]
 
-//Creating a custom logger
-const logger = Desktop.logger.createLogger('email-reference-generator');
+  // Generate random string in the following format: character, number, character, number
+  let randomString = '';
+  const randomStringLength = 4; // Can be increased if required (regex must be updated to match if changed)
 
-export class EmailRefGenerator extends HTMLElement {
-  private copyButton!: HTMLButtonElement;
-  private emailTransactionIds = new Set();
-
-  static get observedAttributes() {
-    return ['darkmode'];
+  for (let i = 0; i < randomStringLength; i++) {
+    if (i % 2 === 0) {
+      // Append random character between A-Z on even index
+      randomString += String.fromCharCode(Math.floor(Math.random() * 26) + 65);
+    } else {
+      // Append random digit between 0-9 on odd index
+      randomString += Math.floor(Math.random() * 10).toString();
+    }
   }
+
+  // Generate date string
+  const date = new Date();
+  const year = date.getFullYear().toString().slice(-2);
+  const month = ('0' + (date.getMonth() + 1)).slice(-2);
+  const day = ('0' + date.getDate()).slice(-2);
+  const dateString = year + month + day;
+
+  // Generate time string
+  const hours = ('0' + date.getHours()).slice(-2);
+  const minutes = ('0' + date.getMinutes()).slice(-2);
+  const seconds = ('0' + date.getSeconds()).slice(-2);
+  const timeString = hours + minutes + seconds;
+
+  return `[Ref:${randomString}/${dateString}/${timeString}]`;
+}
+
+class EmailRefGenerator extends HTMLElement {
+  private shadow: ShadowRoot;
+  private timerId?: number;
 
   constructor() {
     super();
-    const shadow = this.attachShadow({ mode: 'open' });
-    shadow.innerHTML = `
+    this.shadow = this.attachShadow({ mode: 'open' });
+
+    this.shadow.innerHTML = `
       <style>
-        :host {
-          --tooltip-color: black;
-          --arrow-size: 10px;
-
-          --text-color: oklch(20.8% 0.042 265.755);
-          --shadow: oklch(70.4% 0.04 256.788);
-          --border: oklch(55.4% 0.046 257.417);
-          --button-outline: #65B4FA;
-            
-          --success-bg: oklch(72.3% 0.219 149.579);
-          --success-text: oklch(62.7% 0.194 149.214);
-        }
-
-        /* Dark mode - activated via .dark class */
-        :host(.dark) {
-          --text-color: oklch(92.9% 0.013 255.508);
-
-          --shadow: oklch(86.9% 0.022 252.894);
-          --border: oklch(37.2% 0.044 257.287);
-        }
-
-        .container {
-          box-sizing: border-box;
-          border-radius: 8px;
-          border-color: var(--text-color);
-          border: 1px solid var(--border);
-          display: inline-flex;
-          flex-warp: no-wrap;
-          align-items: center;
-          justify-content:center;
-          gap: 0.2em;
-          padding: 0 0.4em;
-          transition: background-color 0.4s ease, color 0.4s ease, opacity 0.3s ease, transform 0.3s ease;
-          color: var(--text-color);
-          font-size: 0.9rem;
-        }
-        .test {
-        opacity: 0;
-        pointer-events: none;
-        transform: translateY(-10px);
-        }
-
-        .button {
-          width: 32px;
-          height: 32px;
+        button {
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          padding: 0.4em;
-          cursor: pointer;
-          background: transparent;
-          color: var(--text-color);
-          border: none;
-          border-radius: 50%;
-          position: relative;
-
-          --scale: 0;       /* tooltip hidden initially */
-          --arrow-size: 16px; /* bigger arrow */
-          --tooltip-border: #767676;
-        }
-
-        /* Shared base styles for tooltip and arrow */
-        .button::before,
-        .button::after {
-          position: absolute;
-          left: 50%;
-          top: calc(100% + 6px);   /* BELOW the button */
-          transform: translateX(-50%) scale(var(--scale));
-          transform-origin: top center;
-          transition: transform 120ms ease;
-        }
-
-        /* Tooltip bubble */
-        .button::before {
-          content: attr(data-tooltip);
-          background: var(--tooltip-color);
+          gap: 0.15rem;
+          padding: 5px 10px;
+          font-size: 12px;
+          font-weight: 600;
+          background-color: #0a74da;
           color: white;
-          padding: 0.5rem 0.6rem;
-          border-radius: 4px;
-          font-size: 13px;
-          white-space: nowrap;
-          z-index: 10;
-          filter: drop-shadow(0 0 0.5px var(--tooltip-border));
+          border: none;
+          border-radius: 6px;
+          cursor: pointer;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.12);
+          transition: background-color 0.25s, box-shadow 0.25s, transform 0.1s;
         }
 
-        /* Arrow pointing UP toward the button */
-        .button::after {
-          content: "";
-          top: calc(100%); /* arrow sits below tooltip */
-          transform: translateX(-50%) scale(var(--scale));
-          border-left: var(--arrow-size) solid transparent;
-          border-right: var(--arrow-size) solid transparent;
-          border-bottom: var(--arrow-size) solid var(--tooltip-color); /* ▲ arrow pointing up */
-          /* optional border for arrow edges */
-          filter: drop-shadow(0 0 0.5px var(--tooltip-border));
-          z-index: 9;
+        button svg {
+          width: 18px;
+          height: 18px;
         }
 
-        /* Show tooltip when hovering */
-        .button:hover::before,
-        .button:hover::after {
-          --scale: 1;
+        button:hover {
+          background-color: #085bb1;
+          box-shadow: 0 3px 6px rgba(0,0,0,0.16);
         }
 
-        .button:is(:focus) {
-           box-shadow: 0 0 2px 2px var(--button-outline);
-           outline: transparent;
+        button:active {
+          transform: translateY(1px);
         }
 
-        .button.active {
-          opacity: 1;
-          transform: translateY(0);
-          pointer-events: auto;
-        }
-
-        .button.success {
-          color: var(--success-text);
-        }
-
-        .button__icon {
-          width: auto;
-        }
-
-        /* Dark mode input focus glow */
-        :host(.dark) input:focus {
-          box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.3);
+        button.success {
+          background-color: #28a745 !important;
+          box-shadow: 0 0 4px rgba(40,167,69,0.6);
         }
       </style>
 
-      <button id="copy-btn" class="button" data-tooltip="Generate Email Title" title="Generate Email Title" aria-label="Generate Email Title">
+      <button>Generate Ref
         <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor">
-          <path
-            d="M480-480Zm0-40 320-200H160l320 200ZM160-160q-33 0-56.5-23.5T80-240v-480q0-33 23.5-56.5T160-800h640q33 0 56.5 23.5T880-720v280h-80v-200L480-440 160-640v400h360v80H160ZM715-42l-70-40 46-78h-91v-80h91l-46-78 70-40 45 78 45-78 70 40-46 78h91v80h-91l46 78-70 40-45-78-45 78Z" />
+          <path d="M480-480Zm0-40 320-200H160l320 200ZM160-160q-33 0-56.5-23.5T80-240v-480q0-33 23.5-56.5T160-800h640q33 0 56.5 23.5T880-720v280h-80v-200L480-440 160-640v400h360v80H160ZM715-42l-70-40 46-78h-91v-80h91l-46-78 70-40 45 78 45-78 70 40-46 78h91v80h-91l46 78-70 40-45-78-45 78Z" />
         </svg>
       </button>
     `;
   }
 
-  connectedCallback() {
-    Desktop.config.init({ widgetName: "email-reference-generator", widgetProvider: "Conscia" });
-    this.copyButton = this.shadowRoot!.querySelector('#copy-btn')!;
-    let timerId: number | undefined;
-
-    this.copyButton.addEventListener("click", () => {
-      const textToCopy = generateEmailId();
-      navigator.clipboard.writeText(textToCopy).then(() => {
-        if (timerId) clearTimeout(timerId);
-        this.copyButton.classList.add("success");
-        timerId = setTimeout(() => {
-          this.copyButton.classList.remove("success");
-        }, 3000);
-
-      }).catch(() => alert("Unable to write to clipboard. Please ensure permissions have been enabled."));
+  connectedCallback(): void {
+    const button = this.shadow.querySelector('button') as HTMLButtonElement;
+    button.addEventListener('click', () => {
+      const textToCopy = generateId();
+      navigator.clipboard.writeText(textToCopy)
+        .then(() => {
+          if (this.timerId) clearTimeout(this.timerId);
+          button.classList.add("success");
+          this.timerId = window.setTimeout(() => {
+            button.classList.remove("success");
+          }, 3000);
+        })
+        .catch(() => {
+          alert("Unable to write to clipboard. Please ensure permissions have been enabled.");
+        });
     });
-
-    this.webexEventListeners();
-  }
-
-  render() {
-    if (this.emailTransactionIds.size) {
-      logger.info("Render: showing the widget");
-      this.copyButton.classList.add('active');
-    } else {
-      logger.info("Render: hiding the widget");
-      this.copyButton.classList.remove('active');
-    }
-  }
-
-  webexEventListeners() {
-    Desktop.agentContact.addEventListener("eAgentContactAssigned", (message) => {
-      logger.info('eAgentContactAssigned', JSON.stringify(message));
-      logger.info("media type is:", message.data.interaction.mediaType);
-      logger.info("interactionId", message.data.interaction.interactionId);
-      if (message.data.interaction.mediaType === "email") {
-        this.emailTransactionIds.add(message.data.interactionId);
-        this.render();
-      }
-    });
-
-    Desktop.agentContact.addEventListener("eAgentContactEnded", (message) => {
-      logger.info('eAgentContactEnded', JSON.stringify(message));
-      logger.info("media type is:", message.data.interaction.mediaType);
-      logger.info("interactionId", message.data.interaction.interactionId);
-      if (this.emailTransactionIds.has(message.data.interactionId)) {
-        this.emailTransactionIds.delete(message.data.interactionId);
-        this.render();
-        logger.info("Tracked interaction closed.");
-      }
-    });
-  }
-
-  attributeChangedCallback(name: string, _: string, newValue: string) {
-    if (name === 'darkmode') {
-      const isDark = newValue === 'true';
-      if (isDark) {
-        this.classList.add('dark');
-      } else {
-        this.classList.remove('dark');
-      }
-    }
   }
 }
 
-customElements.define('email-reference-generator', EmailRefGenerator);
+customElements.define('email-ref-generator', EmailRefGenerator);
+
