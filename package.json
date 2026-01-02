@@ -18,6 +18,6 @@
     "vite": "^7.1.12"
   },
   "dependencies": {
-    "@wxcc-desktop/sdk": "^2.0.11"
+    "@wxcc-desktop/sdk": "^1.3.16"
   }
 }

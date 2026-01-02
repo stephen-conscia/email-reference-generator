@@ -1,3 +1,7 @@
+import { Desktop } from "@wxcc-desktop/sdk"
+
+const logger = Desktop.logger.createLogger("email-ref-generator");
+
 function generateId(): string {
   // Reference ID example [J4L5/250917/101545]
 
@@ -34,6 +38,13 @@ function generateId(): string {
 class EmailRefGenerator extends HTMLElement {
   private shadow: ShadowRoot;
   private timerId?: number;
+  private interactionId: null | string = null;
+  private button!: HTMLButtonElement;
+
+
+  static get observedAttributes() {
+    return ["darkmode"];
+  }
 
   constructor() {
     super();
@@ -56,6 +67,19 @@ class EmailRefGenerator extends HTMLElement {
           cursor: pointer;
           box-shadow: 0 2px 4px rgba(0,0,0,0.12);
           transition: background-color 0.25s, box-shadow 0.25s, transform 0.1s;
+          opacity: 0;
+          transform: translateY(-10px);
+          pointer-events: none;
+        }
+
+        button.active {
+          opacity: 1;
+          transform: translateY(0);
+          pointer-events: auto;
+        }
+
+        .button:active {
+          transform: translateY(1px);
         }
 
         button svg {
@@ -87,22 +111,79 @@ class EmailRefGenerator extends HTMLElement {
   }
 
   connectedCallback(): void {
-    const button = this.shadow.querySelector('button') as HTMLButtonElement;
-    button.addEventListener('click', () => {
+    Desktop.config.init();
+    this.button = this.shadow!.querySelector('button')!;
+    this.button.addEventListener('click', () => {
       const textToCopy = generateId();
       navigator.clipboard.writeText(textToCopy)
         .then(() => {
           if (this.timerId) clearTimeout(this.timerId);
-          button.classList.add("success");
+          this.button.classList.add("success");
           this.timerId = window.setTimeout(() => {
-            button.classList.remove("success");
+            this.button.classList.remove("success");
           }, 3000);
+          logger.info("Event handler clicked");
         })
         .catch(() => {
           alert("Unable to write to clipboard. Please ensure permissions have been enabled.");
         });
     });
+    this.webexEventListeners();
   }
+
+  // Handle darkmode="true" | "false"
+  attributeChangedCallback(name: string, _: string, newValue: string) {
+    logger.info(`attributeChangedCallback - ${name} changed to ${newValue}`);
+    if (name === 'darkmode') {
+      const isDark = newValue === 'true';
+      if (isDark) {
+        this.classList.add('dark');
+      } else {
+        this.classList.remove('dark');
+      }
+    }
+  }
+
+  show() {
+    logger.info("Show")
+    this.button.classList.add('active');
+  }
+
+  hide() {
+    logger.info("Hide")
+    this.button.classList.remove('active');
+  }
+
+  webexEventListeners() {
+
+    Desktop.agentContact.addEventListener("eAgentContactAssigned", (message) => {
+      //logger.info('eAgentContactAssigned', JSON.stringify(message));
+      logger.info("eAgentContactAssigned");
+      logger.info("media type is:", message.data.interaction.mediaType);
+      logger.info("interactionId", message.data.interaction.interactionId);
+      logger.info("contactDirection type", message.data.interaction.contactDirection.type);
+
+      if (message.data.interaction.mediaType === "email" && message.data.interaction.contactDirection.type === "OUTBOUND" && !this.interactionId) {
+        this.interactionId = message.data.interactionId;
+        this.show();
+        logger.info("New outbound email interaction. Showing the widget");
+      }
+    });
+
+    Desktop.agentContact.addEventListener("eAgentContactEnded", (message) => {
+      //logger.info('eAgentContactEnded', JSON.stringify(message));
+      logger.info("eAgentContactEnded");
+      logger.info("media type is:", message.data.interaction.mediaType);
+      logger.info("interactionId", message.data.interaction.interactionId);
+      if (message.data.interactionId === this.interactionId) {
+        this.interactionId = null;
+        this.hide();
+        logger.info("Tracked interaction closed. Hiding the widget");
+      }
+    });
+  }
+
+
 }
 
 customElements.define('email-ref-generator', EmailRefGenerator);
